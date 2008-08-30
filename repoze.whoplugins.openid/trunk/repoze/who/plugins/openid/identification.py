@@ -95,7 +95,9 @@ class OpenIdIdentificationPlugin(object):
         if request.path == self.login_handler_path:
             # we put this into the environ so the challenger knows that we
             # provided it and replaces the response
-            identity['repoze.whoplugins.openid.openid'] = environ['repoze.whoplugins.openid.openid'] = request.params.get(self.openid_field)
+            open_id = request.params.get(self.openid_field)
+            environ['repoze.who.logger'].debug('checking openid results for : %s ' %open_id)
+            identity['repoze.whoplugins.openid.openid'] = environ['repoze.whoplugins.openid.openid'] = open_id
 
             # start challenge
             mode=request.params.get("openid.mode", None)
@@ -104,6 +106,8 @@ class OpenIdIdentificationPlugin(object):
                 info = oidconsumer.complete(request.params, request.url)
 
                 if info.status == consumer.SUCCESS:
+                    environ['repoze.who.logger'].info('openid request successful for : %s ' %open_id)
+                    
                     display_identifier = info.getDisplayIdentifier()
                     
                     # remove this so that the challenger is not triggered again
@@ -134,7 +138,6 @@ class OpenIdIdentificationPlugin(object):
     # IIdentifier
     def forget(self, environ, identity):
         """forget about the authentication again"""
-        print "forgetting", identity
         rememberer = self._get_rememberer(environ)
         return rememberer.forget(environ, identity)
 
@@ -150,21 +153,25 @@ class OpenIdIdentificationPlugin(object):
             res.status = 302
             res.location = self.login_form_url+"?%s=%s" %(self.came_from_field, request.url)
             return res
-       
+
         openid_url = request.params[self.openid_field]
+        environ['repoze.who.logger'].debug('starting openid request for : %s ' %openid_url)       
 
         try:
             openid_request = self.get_consumer(environ).begin(openid_url)
         except consumer.DiscoveryFailure, exc:
             environ[self.error_field] = 'Error in discovery: %s' %exc[0]
+            environ['repoze.who.logger'].info('Error in discovery: %s ' %exc[0])            
             return None
         except KeyError, exc:
             environ[self.error_field] = 'Error in discovery: %s' %exc[0]
+            environ['repoze.who.logger'].info('Error in discovery: %s ' %exc[0])
             # TODO: when does that happen, why does plone.openid use "pass" here?
             return None
             
         if openid_request is None:
             environ[self.error_field] = 'No OpenID services found for %s' %openid_url
+            environ['repoze.who.logger'].info('No OpenID services found for: %s ' %openid_url)
             return None
             
         # TODO: Can we use the MD plugin to add sreg and AX if necessary?
@@ -177,7 +184,7 @@ class OpenIdIdentificationPlugin(object):
 
         return_to = request.path_url # we return to this URL here
         trust_root = request.application_url
-        print return_to
+        environ['repoze.who.logger'].debug('setting return_to URL to : %s ' %return_to)
         
         # TODO: usually you should check openid_request.shouldSendRedirect()
         # but this might say you have to use a form redirect and I don't get why
@@ -187,14 +194,14 @@ class OpenIdIdentificationPlugin(object):
         res = Response()
         res.status = 302
         res.location = redirect_url
+        environ['repoze.who.logger'].debug('redirecting to : %s ' %redirect_url)
         return res
                 
     # IAuthenticator
     def authenticate(self, environ, identity):
         """dummy authenticator"""
-        print "authing", identity
         if identity.has_key("repoze.who.plugins.openid.userid"):
-                print "authed"
+                environ['repoze.who.logger'].info('authenticated : %s ' %identity['repoze.who.plugins.openid.userid'])
                 return identity.get('repoze.who.plugins.openid.userid')
 
 
