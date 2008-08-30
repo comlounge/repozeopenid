@@ -3,7 +3,7 @@ import os
 
 version = '1.0'
 
-setup(name='repoze.whoplugins.openid',
+setup(name='repoze.who.plugins.openid',
       version=version,
       description="An OpenID plugin for repoze.who",
       long_description=open("README.txt").read() + "\n" +
@@ -19,7 +19,7 @@ setup(name='repoze.whoplugins.openid',
       url='',
       license='GPL',
       packages=find_packages(exclude=['ez_setup']),
-      namespace_packages=['repoze', 'repoze.who.plugins'],
+      namespace_packages=['repoze', 'repoze.who', 'repoze.who.plugins'],
       include_package_data=True,
       zip_safe=False,
       install_requires=[
