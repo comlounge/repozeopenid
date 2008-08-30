@@ -19,34 +19,6 @@ from openid.cryptutil import randomString
 from openid.fetchers import setDefaultFetcher, Urllib2Fetcher
 from openid.extensions import pape, sreg
 
-_DEFAULT_FORM = """
-<html>
-<head>
-  <title>Log In</title>
-</head>
-<body>
-  <div>
-     <b>Log In</b>
-  </div>
-  <br/>
-  <form method="POST" action="?__do_login=true">
-    <input type="hidden" name="__do_login" value="1" />
-    <table border="0">
-    <tr>
-      <td>Your OpenID:</td>
-      <td><input type="text" name="openid"></input></td>
-    </tr>
-    <tr>
-      <td></td>
-      <td><input type="submit" name="submit" value="Log In"/></td>
-    </tr>
-    </table>
-  </form>
-  <pre>
-  </pre>
-</body>
-</html>
-"""
 
 
 class OpenIdIdentificationPlugin(object):
@@ -63,8 +35,10 @@ class OpenIdIdentificationPlugin(object):
                     login_form_url = '',
                     logged_in_url = '',
                     logged_out_url = '',
-                    came_from_field = ''):
-        print "init", store
+                    came_from_field = '',
+                    rememberer_name = ''):
+
+        self.rememberer_name = rememberer_name
         self.login_handler_path = login_handler_path
         self.logout_handler_path = logout_handler_path
         self.login_form_url = login_form_url
@@ -81,21 +55,22 @@ class OpenIdIdentificationPlugin(object):
             raise NotImplemented
         self.openid_field = openid_field
         
-        
+    def _get_rememberer(self, environ):
+        rememberer = environ['repoze.who.plugins'][self.rememberer_name]
+        return rememberer
 
     def get_consumer(self,environ):
-        session = environ[self.session_name]        
-        return consumer.Consumer(session,self.store)
+        #session = environ[self.session_name]        
+        return consumer.Consumer({},self.store)
         
     def redirect_to_logged_in(self, environ):
-        """redirect to came_from or standard page"""
+        """redirect to came_from or standard page if login was successful"""
         request = Request(environ)
         came_from = request.params.get(self.came_from_field,'')
         if came_from!='':
             url = came_from
         else:
             url = self.logged_in_url
-        print "doing redirect to", url
         res = Response()
         res.status = 302
         res.location = url
@@ -115,15 +90,6 @@ class OpenIdIdentificationPlugin(object):
             return {}
 
         identity = {}
-        
-        # now check if we maybe are already identified, what joy would that be!
-        session = environ[self.session_name]
-        identity = session.get('repoze.whoplugins.openid.openid', {})
-        if identity.has_key('repoze.who.userid'):
-            # check if we are still in the login path. redirect if necessary
-            if request.path == self.login_handler_path:
-                self.redirect_to_logged_in(environ)
-            return identity
 
         # we are not identified yet, check if we might have an openid request
         if request.path == self.login_handler_path:
@@ -139,9 +105,13 @@ class OpenIdIdentificationPlugin(object):
 
                 if info.status == consumer.SUCCESS:
                     display_identifier = info.getDisplayIdentifier()
-                    identity['repoze.who.userid']= display_identifier
+                    
+                    # remove this so that the challenger is not triggered again
                     del environ['repoze.whoplugins.openid.openid']
                     
+                    # store the id for the authenticator
+                    identity['repoze.who.plugins.openid.userid'] = display_identifier
+
                     # now redirect to came_from or the success page
                     self.redirect_to_logged_in(environ)
                     return identity
@@ -158,18 +128,15 @@ class OpenIdIdentificationPlugin(object):
     # IIdentifier
     def remember(self, environ, identity):
         """remember the openid in the session we have anyway"""
-        session = environ[self.session_name]        
-        session['repoze.whoplugins.openid.openid'] = identity
-        print session
-        session.save()
+        rememberer = self._get_rememberer(environ)
+        return rememberer.remember(environ, identity)
 
     # IIdentifier
     def forget(self, environ, identity):
         """forget about the authentication again"""
-        session = environ[self.session_name]
-        if session.has_key('repoze.whoplugins.openid.openid'):
-            del session['repoze.whoplugins.openid.openid']
-            session.save()
+        print "forgetting", identity
+        rememberer = self._get_rememberer(environ)
+        return rememberer.forget(environ, identity)
 
     # IChallenge
     def challenge(self, environ, status, app_headers, forget_headers):
@@ -183,105 +150,54 @@ class OpenIdIdentificationPlugin(object):
             res.status = 302
             res.location = self.login_form_url+"?%s=%s" %(self.came_from_field, request.url)
             return res
-
-        
+       
         openid_url = request.params[self.openid_field]
-        session = environ[self.session_name]
 
         try:
             openid_request = self.get_consumer(environ).begin(openid_url)
-            session.save()
         except consumer.DiscoveryFailure, exc:
-            # TODO: Put this into self.error_field
-            environ['repoze.whoplugins.openid.error'] = 'Error in discovery: %s' %exc[0]
+            environ[self.error_field] = 'Error in discovery: %s' %exc[0]
             return None
-        else:
-            if openid_request is None:
-                # TODO: Put this into self.error_field
-                environ['repoze.whoplugins.openid.error'] = 'No OpenID services found for %s' %openid_url
-                return None
-            else:
-                # TODO: Can we use the MD plugin to add sreg and AX if necessary?
-                # TODO: Who has to do PAPE?
-                #if use_sreg:
-                    #self.requestRegistrationData(request)
+        except KeyError, exc:
+            environ[self.error_field] = 'Error in discovery: %s' %exc[0]
+            # TODO: when does that happen, why does plone.openid use "pass" here?
+            return None
+            
+        if openid_request is None:
+            environ[self.error_field] = 'No OpenID services found for %s' %openid_url
+            return None
+            
+        # TODO: Can we use the MD plugin to add sreg and AX if necessary?
+        # TODO: Who has to do PAPE?
+        #if use_sreg:
+            #self.requestRegistrationData(request)
 
-                #if use_pape:
-                    #self.requestPAPEDetails(request)
+        #if use_pape:
+            #self.requestPAPEDetails(request)
 
-                return_to = request.path_url # use the same
-                trust_root = request.application_url
-                
-                # What do we have to do if this is not True?
-                if openid_request.shouldSendRedirect():
-                    redirect_url = openid_request.redirectURL(
-                                    trust_root, return_to, immediate=False)
-                                    # TODO: check what immediate means again
-                    res = Response()
-                    res.status = 302
-                    res.location = redirect_url
-                    return res
-
-                else:
-                    print "ELSE?!?"
-                    # TODO: what is this and how do we handle this
-                    # real TODO: read openid lib docs
-                    #form_html = request.htmlMarkup(
-                    #trust_root, return_to,
-                    #form_tag_attrs={'id':'openid_message'},
-                    #immediate=immediate)
-                    #
-                    #self.wfile.write(form_html)
-                    return None
+        return_to = request.path_url # we return to this URL here
+        trust_root = request.application_url
+        print return_to
+        
+        # TODO: usually you should check openid_request.shouldSendRedirect()
+        # but this might say you have to use a form redirect and I don't get why
+        # so we do the same as plone.openid and ignore it.
+        redirect_url = openid_request.redirectURL(trust_root, return_to) 
+        # # , immediate=False)
+        res = Response()
+        res.status = 302
+        res.location = redirect_url
+        return res
                 
     # IAuthenticator
     def authenticate(self, environ, identity):
         """dummy authenticator"""
-        if identity.has_key("repoze.whoplugins.openid.openid"):
-                return identity.get('repoze.whoplugins.openid.openid')
+        print "authing", identity
+        if identity.has_key("repoze.who.plugins.openid.userid"):
+                print "authed"
+                return identity.get('repoze.who.plugins.openid.userid')
 
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, id(self))
-
-def make_plugin(store='mem',
-                openid_field = "openid",
-                session_name = None,
-                login_handler_path = None,
-                logout_handler_path = None,
-                login_form_url = None,
-                error_field = 'error',
-                logged_in_url = None,
-                logged_out_url = None,
-                came_from_field = None,
-                store_file_path=''):
-    if store not in (u'mem',u'file'):
-        raise ValueError("store needs to be 'sql' or 'file'")
-    if login_form_url is None:
-        raise ValueError("login_form_url needs to be given")
-    if login_handler_path is None:
-        raise ValueError("login_handler_path needs to be given")
-    if logout_handler_path is None:
-        raise ValueError("logout_handler_path needs to be given")
-    if session_name is None:
-        raise ValueError("session_name needs to be given")
-    if logged_in_url is None:
-        raise ValueError("logged_in_url needs to be given")
-    if logged_out_url is None:
-        raise ValueError("logged_out_url needs to be given")
-
-    plugin = OpenIdIdentificationPlugin(store, 
-        openid_field = openid_field,
-        error_field = error_field,
-        session_name = session_name,
-        login_form_url = login_form_url,
-        login_handler_path = login_handler_path,
-        logout_handler_path = logout_handler_path,
-        store_file_path = store_file_path,
-        logged_in_url = logged_in_url,
-        logged_out_url = logged_out_url,
-        came_from_field = came_from_field
-        
-        )
-    return plugin
 
