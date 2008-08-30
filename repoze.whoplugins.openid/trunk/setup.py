@@ -19,7 +19,7 @@ setup(name='repoze.whoplugins.openid',
       url='',
       license='GPL',
       packages=find_packages(exclude=['ez_setup']),
-      namespace_packages=['repoze', 'repoze.whoplugins'],
+      namespace_packages=['repoze', 'repoze.who.plugins'],
       include_package_data=True,
       zip_safe=False,
       install_requires=[
