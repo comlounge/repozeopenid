@@ -82,8 +82,10 @@ class OpenIdIdentificationPlugin(object):
 
         # first test for logout as we then don't need the rest
         if request.path == self.logout_handler_path:
-            self.forget(environ,{})
             res = Response()
+            # set forget headers
+            for a,v in self.forget(environ,{}):
+                res.headers.add(a,v)
             res.status = 302
             res.location = self.logged_out_url
             environ['repoze.who.application'] = res
@@ -95,11 +97,14 @@ class OpenIdIdentificationPlugin(object):
         if request.path == self.login_handler_path:
             # we put this into the environ so the challenger knows that we
             # provided it and replaces the response
-            open_id = request.params.get(self.openid_field)
+            open_id = request.params.get(self.openid_field, None)
             environ['repoze.who.logger'].debug('checking openid results for : %s ' %open_id)
+            
+            # we don't do anything with the openid we found ourselves but we put it in here
+            # to tell the challenge plugin to initiate the challenge
             identity['repoze.whoplugins.openid.openid'] = environ['repoze.whoplugins.openid.openid'] = open_id
-
-            # start challenge
+            
+            # check for a response from the openid provider
             mode=request.params.get("openid.mode", None)
             if mode=="id_res":
                 oidconsumer = self.get_consumer(environ)
@@ -133,7 +138,9 @@ class OpenIdIdentificationPlugin(object):
     def remember(self, environ, identity):
         """remember the openid in the session we have anyway"""
         rememberer = self._get_rememberer(environ)
-        return rememberer.remember(environ, identity)
+        r= rememberer.remember(environ, identity)
+        print r
+        return r
 
     # IIdentifier
     def forget(self, environ, identity):
@@ -174,14 +181,6 @@ class OpenIdIdentificationPlugin(object):
             environ['repoze.who.logger'].info('No OpenID services found for: %s ' %openid_url)
             return None
             
-        # TODO: Can we use the MD plugin to add sreg and AX if necessary?
-        # TODO: Who has to do PAPE?
-        #if use_sreg:
-            #self.requestRegistrationData(request)
-
-        #if use_pape:
-            #self.requestPAPEDetails(request)
-
         return_to = request.path_url # we return to this URL here
         trust_root = request.application_url
         environ['repoze.who.logger'].debug('setting return_to URL to : %s ' %return_to)
@@ -199,7 +198,12 @@ class OpenIdIdentificationPlugin(object):
                 
     # IAuthenticator
     def authenticate(self, environ, identity):
-        """dummy authenticator"""
+        """dummy authenticator
+        
+        This takes the openid found and uses it as the userid. Normally you would want
+        to take the openid and search a user for it to map maybe multiple openids to a user.
+        
+        """
         if identity.has_key("repoze.who.plugins.openid.userid"):
                 environ['repoze.who.logger'].info('authenticated : %s ' %identity['repoze.who.plugins.openid.userid'])
                 return identity.get('repoze.who.plugins.openid.userid')
