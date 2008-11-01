@@ -30,4 +30,5 @@ setup(name='repoze.who.plugins.openid',
       entry_points="""
       # -*- Entry points: -*-
       """,
+      test_suite='repoze.who.plugins.openid.tests'
       )
