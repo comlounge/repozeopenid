@@ -125,7 +125,7 @@ class OpenIdIdentificationPlugin(object):
                 if info.status == consumer.SUCCESS:
                     environ['repoze.who.logger'].info('openid request successful for : %s ' %open_id)
                     
-                    display_identifier = info.getDisplayIdentifier()
+                    display_identifier = info.identity_url
                     
                     # remove this so that the challenger is not triggered again
                     del environ['repoze.whoplugins.openid.openid']
