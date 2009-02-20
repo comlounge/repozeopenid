@@ -73,14 +73,14 @@ class OpenIdIdentificationPlugin(object):
             # TODO: This does not work as we need a connection, not a string
             self.store = sqlstore.SQLStore(sql_connstring, sql_associations_table, sql_connstring)
         self.openid_field = openid_field
-        
+            
     def _get_rememberer(self, environ):
         rememberer = environ['repoze.who.plugins'][self.rememberer_name]
         return rememberer
 
     def get_consumer(self,environ):
-        session = environ[self.session_name,{}]        
-        return consumer.Consumer({},self.store)
+        session = environ.get(self.session_name,{})
+        return consumer.Consumer(session,self.store)
         
     def redirect_to_logged_in(self, environ):
         """redirect to came_from or standard page if login was successful"""
@@ -105,7 +105,7 @@ class OpenIdIdentificationPlugin(object):
         """
 
         request = Request(environ)
-
+        
         # first test for logout as we then don't need the rest
         if request.path == self.logout_handler_path:
             res = Response()
@@ -223,14 +223,15 @@ class OpenIdIdentificationPlugin(object):
         # in the library openid_request is called auth_req btw.
             openid_request = self.get_consumer(environ).begin(openid_url)
         except consumer.DiscoveryFailure, exc:
-        # eventually no openid server could be found
+            # eventually no openid server could be found
             environ[self.error_field] = 'Error in discovery: %s' %exc[0]
-            environ['repoze.who.logger'].info('Error in discovery: %s ' %exc[0])            
-            return None
+            environ['repoze.who.logger'].info('Error in discovery: %s ' %exc[0])     
+            return self._redirect_to_loginform(environ)
         except KeyError, exc:
             # TODO: when does that happen, why does plone.openid use "pass" here?
             environ[self.error_field] = 'Error in discovery: %s' %exc[0]
             environ['repoze.who.logger'].info('Error in discovery: %s ' %exc[0])
+            return self._redirect_to_loginform(environ)
             return None
            
         # not sure this can still happen but we are making sure.
@@ -238,7 +239,7 @@ class OpenIdIdentificationPlugin(object):
         if openid_request is None:
             environ[self.error_field] = 'No OpenID services found for %s' %openid_url
             environ['repoze.who.logger'].info('No OpenID services found for: %s ' %openid_url)
-            return None
+            return self._redirect_to_loginform(environ)
        
         # we have to tell the openid provider where to send the user after login
         # so we need to compute this from our path and application URL
@@ -269,6 +270,18 @@ class OpenIdIdentificationPlugin(object):
         # now it's redirecting and might come back via the identify() method
         # from the openid provider once the user logged in there.
         return res
+        
+    def _redirect_to_loginform(self, environ={}):
+        """redirect the user to the login form"""
+        res = Response()
+        res.status = 302
+        q=''
+        ef = environ.get(self.error_field, None)
+        if ef is not None:
+                q='?%s=%s' %(self.error_field, ef)
+        res.location = self.login_form_url+q
+        return res
+        
                 
     # IAuthenticator
     def authenticate(self, environ, identity):
