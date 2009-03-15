@@ -1,8 +1,10 @@
 Changelog
 =========
 
-1.0 - Unreleased
-----------------
+0.5 - March 15th 2009
+---------------------
 
 * Initial release
+
+
 
