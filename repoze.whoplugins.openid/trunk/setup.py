@@ -11,14 +11,12 @@ setup(name='repoze.who.plugins.openid',
       # Get more strings from http://www.python.org/pypi?%3Aaction=list_classifiers
       classifiers=[
         "Programming Language :: Python",
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: GNU General Public License (GPL)",
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
-        "Topic :: System :: Systems Administration :: Authentication/Directory :: LDAP" 
         ],
       keywords='openid repoze who identification authentication plugin',
       author='Christian Scholz',
