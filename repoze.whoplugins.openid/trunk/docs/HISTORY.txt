@@ -1,6 +1,14 @@
 Changelog
 =========
 
+
+0.5.3 - TBD
+-----------
+
+* added webob to requirements in setup.py
+
+
+
 0.5.2 - September 25th 2009
 ---------------------------
 

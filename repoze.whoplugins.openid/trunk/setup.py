@@ -31,6 +31,7 @@ setup(name='repoze.who.plugins.openid',
           'repoze.who>=1.0.6', 
 	  'python-openid>=2.0',
           'setuptools',
+          'webob',
           'zope.interface'
       ],
       test_requires=[   
