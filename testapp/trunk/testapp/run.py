@@ -1,11 +1,10 @@
-from repoze.bfg import make_app
-from repoze.bfg import get_options
+from repoze.bfg.router import make_app
 
 def app(global_config, **kw):
     # paster app config callback
     from testapp.models import get_root
     import testapp
-    return make_app(get_root, testapp, options=get_options(kw))
+    return make_app(get_root, testapp, options=kw)
 
 if __name__ == '__main__':
     from paste import httpserver

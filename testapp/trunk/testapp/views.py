@@ -1,4 +1,4 @@
-from repoze.bfg.template import render_template_to_response
+from repoze.bfg.chameleon_zpt import render_template_to_response
 from repoze.bfg.security import authenticated_userid
 
 def my_view(context, request):

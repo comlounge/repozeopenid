@@ -1,41 +1,40 @@
-<configure xmlns="http://namespaces.zope.org/zope"
-	   xmlns:bfg="http://namespaces.repoze.org/bfg"
+<configure xmlns="http://namespaces.repoze.org/bfg"
 	   i18n_domain="repoze.bfg">
 
   <!-- this must be included for the view declarations to work -->
-  <include package="repoze.bfg" />
+  <include package="repoze.bfg.includes" />
 
   <utility
     provides="repoze.bfg.interfaces.ISecurityPolicy"
     factory="repoze.bfg.security.RemoteUserACLSecurityPolicy"
   />
 
-  <bfg:view
+  <view
      for=".models.IMyModel"
      view=".views.my_view"
      permission="view"
      />
 
- <bfg:view
+ <view
     for=".models.IMyModel"
     view=".views.login_form"
     name="login_form"
     />
 
- <bfg:view
+ <view
     for=".models.IMyModel"
     view=".views.success"
     name="success"
     permission="view"
     />
 
-<bfg:view
+<view
    for=".models.IMyModel"
    view=".views.logout_success"
    name="logout_success"
    />
 
-<bfg:view
+<view
    for=".models.IMyModel"
    view=".views.where"
    name="where"
