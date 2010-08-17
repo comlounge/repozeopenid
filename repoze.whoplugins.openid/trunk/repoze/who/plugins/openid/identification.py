@@ -191,9 +191,6 @@ class OpenIdIdentificationPlugin(object):
                     # store the id for the authenticator
                     identity['repoze.who.plugins.openid.userid'] = display_identifier
                     
-                    from pprint import pprint
-                    pprint(identity)
-                    
                     # now redirect to came_from or the success page
                     self.redirect_to_logged_in(environ)
                     return identity
