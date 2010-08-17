@@ -142,6 +142,31 @@ Here is a list of all possible configuration options and there possible values:
     anyway. Check the ``repoze.who`` documentation on how to write a
     rememberer plugin.
     
+.. describe:: ax_require
+
+    Initiate an AX attribute exchange request along with OpenID authentication
+    and require a list of attributes to be returned. These must be specified 
+    in the following format:
+    
+        email=http://schema.openid.net/contact/email
+        
+.. describe:: ax_optional
+
+    Same as ``ax_require`` but the attributes will not be marked as required.
+
+.. describe:: sreg_require
+
+    Initiate an simple registration (SReg) exchange request along with OpenID 
+    authentication and require a list of attributes to be returned. These must 
+    be specified by name:
+
+        email=http://schema.openid.net/contact/email
+
+.. describe:: sreg_optional
+
+    Same as ``sreg_require`` but the attributes will not be marked as required.
+
+    
     
 The challenge decider
 ---------------------

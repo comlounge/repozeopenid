@@ -14,7 +14,11 @@ def make_identification_plugin(store='mem',
                 rememberer_name = None,
                 sql_associations_table = '',
                 sql_nonces_table = '',
-                sql_connstring = ''):
+                sql_connstring = '',
+                ax_require = '',
+                ax_optional = '',
+                sreg_require = '',
+                sreg_optional = ''):
     if store not in (u'mem',u'file',u'sql'):
         raise ValueError("store needs to be 'mem', 'sql' or 'file'")
     if login_form_url is None:
@@ -46,7 +50,10 @@ def make_identification_plugin(store='mem',
         rememberer_name = rememberer_name,
         sql_associations_table = sql_associations_table,
         sql_nonces_table = sql_nonces_table,
-        sql_connstring = sql_connstring
-        )
+        sql_connstring = sql_connstring,
+        ax_require = ax_require,
+        ax_optional = ax_optional,
+        sreg_require = sreg_require,
+        sreg_optional = sreg_optional)
     return plugin
 

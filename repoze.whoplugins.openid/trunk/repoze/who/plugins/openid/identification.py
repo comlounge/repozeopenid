@@ -2,6 +2,7 @@ import cgi
 import urlparse
 import cgitb
 import sys
+from itertools import chain
 from zope.interface import implements
 
 from repoze.who.interfaces import IChallenger
@@ -16,7 +17,7 @@ from openid.consumer import consumer
 from openid.oidutil import appendArgs
 from openid.cryptutil import randomString
 from openid.fetchers import setDefaultFetcher, Urllib2Fetcher
-from openid.extensions import pape, sreg
+from openid.extensions import pape, sreg, ax
 
 
 
@@ -47,7 +48,11 @@ class OpenIdIdentificationPlugin(object):
                     rememberer_name = '',
                     sql_associations_table = '',
                     sql_nonces_table = '',
-                    sql_connstring = ''):
+                    sql_connstring = '',
+                    ax_require = '',
+                    ax_optional = '',
+                    sreg_require = '',
+                    sreg_optional = ''):
 
         self.rememberer_name = rememberer_name
         self.login_handler_path = login_handler_path
@@ -58,6 +63,19 @@ class OpenIdIdentificationPlugin(object):
         self.came_from_field = came_from_field
         self.logged_out_url = logged_out_url
         self.logged_in_url = logged_in_url
+        self.ax_require = {}
+        
+        for item in ax_require.split():
+            key, value = item.split("=")
+            self.ax_require[key] = value
+            
+        self.ax_optional = {}
+        for item in ax_optional.split():
+            key, value = item.split("=")
+            self.ax_optional[key] = value
+            
+        self.sreg_require = [a.strip() for a in sreg_require.split()]
+        self.sreg_optional = [a.strip() for a in sreg_optional.split()]
         
         # for the SQL store
         self.sql_associations_table = sql_associations_table
@@ -143,8 +161,26 @@ class OpenIdIdentificationPlugin(object):
             if mode=="id_res":
                 oidconsumer = self.get_consumer(environ)
                 info = oidconsumer.complete(request.params, request.url)
-
                 if info.status == consumer.SUCCESS:
+
+                    fr = ax.FetchResponse.fromSuccessResponse(info)
+                    if fr is not None:
+                        items = chain(self.ax_require.items(), self.ax_optional.items())
+                        for key, value in items:
+                            try:
+                                identity['repoze.who.plugins.openid.' + key] = fr.get(value)
+                            except KeyError:
+                                pass
+                    
+                    fr = sreg.SRegResponse.fromSuccessResponse(info)
+                    if fr is not None:
+                        items = chain(self.sreg_require, self.sreg_optional)
+                        for key in items:
+                            try:
+                                identity['repoze.who.plugins.openid.' + key] = fr.get(key)
+                            except KeyError:
+                                pass
+
                     environ['repoze.who.logger'].info('openid request successful for : %s ' %open_id)
                     
                     display_identifier = info.identity_url
@@ -154,7 +190,10 @@ class OpenIdIdentificationPlugin(object):
                     
                     # store the id for the authenticator
                     identity['repoze.who.plugins.openid.userid'] = display_identifier
-
+                    
+                    from pprint import pprint
+                    pprint(identity)
+                    
                     # now redirect to came_from or the success page
                     self.redirect_to_logged_in(environ)
                     return identity
@@ -216,12 +255,26 @@ class OpenIdIdentificationPlugin(object):
 
         # now we have an openid from the user in the request 
         openid_url = request.params[self.openid_field]
-        environ['repoze.who.logger'].debug('starting openid request for : %s ' %openid_url)       
-
+        environ['repoze.who.logger'].debug('starting openid request for : %s ' %openid_url)
+        
         try:
         # we create a new Consumer and start the discovery process for the URL given
         # in the library openid_request is called auth_req btw.
             openid_request = self.get_consumer(environ).begin(openid_url)
+            
+            if len(self.ax_require.values()) or len(self.ax_optional.values()):
+                fetch_request = ax.FetchRequest()
+                for value in self.ax_require.values():
+                    fetch_request.add(ax.AttrInfo(value, required=True))
+                for value in self.ax_optional.values():
+                    fetch_request.add(ax.AttrInfo(value, required=False))
+                openid_request.addExtension(fetch_request)
+            
+            if len(self.sreg_require) or len(self.sreg_optional):
+                sreq = sreg.SRegRequest(required=self.sreg_require, optional=self.sreg_optional)
+                openid_request.addExtension(sreq)
+            
+
         except consumer.DiscoveryFailure, exc:
             # eventually no openid server could be found
             environ[self.error_field] = 'Error in discovery: %s' %exc[0]

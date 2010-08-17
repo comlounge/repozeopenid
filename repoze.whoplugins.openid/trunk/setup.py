@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import os
 
-version = '0.5.2'
+version = '0.5.3'
 
 setup(name='repoze.who.plugins.openid',
       version=version,
@@ -29,7 +29,7 @@ setup(name='repoze.who.plugins.openid',
       zip_safe=False,
       install_requires=[
           'repoze.who>=1.0.6', 
-	  'python-openid>=2.0',
+	      'python-openid>=2.2.1',
           'setuptools',
           'webob',
           'zope.interface'
