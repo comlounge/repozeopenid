@@ -1,0 +1,1 @@
+This plugin enables OpenID authentication for the WSGI authentication middleware repoze.who.
